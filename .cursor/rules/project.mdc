@@ -1,0 +1,7 @@
+---
+description: Repository-wide collaboration and Git rules
+alwaysApply: true
+---
+开始任何工作前，阅读并遵守项目根目录 `AGENTS.md`。
+提交、推送或审阅时，再阅读根目录 `CONTRIBUTING.md`。
+统一规则正文仅维护在 `AGENTS.md`。

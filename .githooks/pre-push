@@ -1,0 +1,15 @@
+#!/bin/sh
+# Preserve stdin: both the policy guard and Git LFS need the update list.
+set -eu
+updates=$(mktemp)
+trap 'rm -f "$updates"' EXIT HUP INT TERM
+cat > "$updates"
+if python -c 'import sys; sys.exit(sys.version_info < (3, 10))' >/dev/null 2>&1; then
+    python scripts/pre_push.py "$@" < "$updates"
+elif python3 -c 'import sys; sys.exit(sys.version_info < (3, 10))' >/dev/null 2>&1; then
+    python3 scripts/pre_push.py "$@" < "$updates"
+else
+    echo "Push blocked: Python 3.10+ is required for the repository guard." >&2
+    exit 1
+fi
+git lfs pre-push "$@" < "$updates"

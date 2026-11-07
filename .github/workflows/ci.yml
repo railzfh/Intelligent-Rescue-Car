@@ -1,0 +1,65 @@
+name: Collaboration checks
+
+on:
+  pull_request:
+  push:
+    branches: [main, master, develop, 'release/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    name: Repository policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          lfs: false # Validate the committed pointer; builds do not need the material pack.
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Test repository guards
+        run: python -m unittest discover -s tests -v
+      - name: Check merged repository tree
+        run: python scripts/check_repository.py --ref HEAD
+      - name: Check every PR commit for intermediate credential/artifact additions
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r commit; do
+            python scripts/check_repository.py --ref "$commit"
+          done < <(git rev-list "$BASE_SHA..$HEAD_SHA")
+
+  firmware:
+    name: Firmware build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          lfs: false
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+          python -m pip install 'cmake>=4.0,<5'
+      - name: Configure a clean Debug build
+        run: cmake --preset Debug
+      - name: Compile and link firmware
+        run: cmake --build --preset Debug --parallel 2

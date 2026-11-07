@@ -1,0 +1,10 @@
+* text=auto
+*.md text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+.githooks/* text eol=lf
+*.a binary
+*.zip binary
+*.7z binary
+/资料.7z filter=lfs diff=lfs merge=lfs -text
