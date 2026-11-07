@@ -208,19 +208,19 @@ class RepositoryGuardsTest(unittest.TestCase):
 
 
 class RulesetTest(unittest.TestCase):
-    def test_rulesets_require_external_approval_checks_and_no_bypass(self):
+    def test_rulesets_require_agent_record_and_checks_without_human_approval(self):
         ruleset = json.loads((ROOT / ".github/rulesets/protect-main.json").read_text())
         self.assertEqual(ruleset["enforcement"], "active")
         self.assertEqual(ruleset["bypass_actors"], [])
         rules = {r["type"]: r.get("parameters", {}) for r in ruleset["rules"]}
         self.assertIn("deletion", rules)
         self.assertIn("non_fast_forward", rules)
-        self.assertEqual(rules["pull_request"]["required_approving_review_count"], 1)
-        self.assertTrue(rules["pull_request"]["dismiss_stale_reviews_on_push"])
-        self.assertTrue(rules["pull_request"]["require_last_push_approval"])
+        self.assertEqual(rules["pull_request"]["required_approving_review_count"], 0)
+        self.assertFalse(rules["pull_request"]["require_code_owner_review"])
+        self.assertFalse(rules["pull_request"]["require_last_push_approval"])
         self.assertEqual(
             {c["context"] for c in rules["required_status_checks"]["required_status_checks"]},
-            {"Repository policy", "Firmware build"},
+            {"Agent review record", "Repository policy", "Firmware build"},
         )
         all_branches = json.loads((ROOT / ".github/rulesets/no-force-push.json").read_text())
         self.assertEqual(all_branches["conditions"]["ref_name"]["include"], ["~ALL"])

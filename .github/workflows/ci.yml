@@ -2,17 +2,41 @@ name: Collaboration checks
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
   push:
     branches: [main, master, develop, 'release/**']
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: checks-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  agent-review:
+    name: Agent review record
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          lfs: false
+          persist-credentials: false
+      - name: Read current PR metadata (including reruns)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" > "$RUNNER_TEMP/agent-review-pr.json"
+      - name: Validate review against current PR head and base
+        env:
+          REVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REVIEW_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 scripts/check_agent_review.py --pr-json "$RUNNER_TEMP/agent-review-pr.json"
+
   policy:
     name: Repository policy
     runs-on: ubuntu-24.04

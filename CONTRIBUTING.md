@@ -8,14 +8,14 @@
 
 | 层级 | 负责什么 | 生效条件 |
 | --- | --- | --- |
-| AGENTS.md 及工具入口 | 保留他人工作、任务分支、真实验证、真人审阅 | 智能体读取并遵守 |
+| AGENTS.md 及工具入口 | 保留他人工作、任务分支、真实验证、独立智能体审阅 | 智能体读取并遵守 |
 | 本地 pre-push | 拦截集成分支/标签推送、远程删除、非快进更新、违规文件 | 每个 clone/worktree 安装 hooks |
-| GitHub Rulesets | 拦截强推、保护集成分支、要求另一人批准及 CI 通过 | 仓库管理员在服务器启用 |
+| GitHub Rulesets | 拦截强推、保护集成分支、要求智能体审阅记录及 CI 通过 | 仓库管理员在服务器启用 |
 
 文件放进仓库不会自动启用 GitHub 规则。本地 hook 可被绕过，不能替代服务器端保护。
-规则集也无法证明业务逻辑正确；编译与真人审阅仍然必要。
+不要求真人审批。高风险改动由独立智能体审阅代码，普通改动只跑自动检查；CI 校验审阅是否必要及记录是否有效，不代替代码审阅。
 
-## 2. 首次公开建仓（由真人负责人执行）
+## 2. 首次公开建仓与规则启用
 
 1. 在 GitHub 创建公开的 `Intelligent-Rescue-Car` 空仓库，不自动生成 README、LICENSE 或 `.gitignore`。
    所有者由两位协作者确定，不能从本机用户名推断。
@@ -37,10 +37,10 @@
    LFS 使用账户存储/下载额度，后续更新会增加对象；CI 不下载资料包。
 4. 资料包不因含本机状态就被自动删除或重打包。需要检查包内内容；压缩包有嵌套包时，外层文件名检查
    不能代替嵌套内容检查。发现问题先修复再公开；只报告位置，不在日志中展示凭据。
-5. 真人完成本地首个提交，关联双方确认的仓库 URL。首个 `main` 是建仓唯一引导操作，
+5. 用户授权的执行者完成本地首个提交，关联双方确认的仓库 URL。首个 `main` 是建仓唯一引导操作，
    在它之后立即启用下述保护，不能把这个引导例外用于日常开发。首次推送前安装 Git LFS 标准 hook
    （`git lfs install --local`），确保资料对象上传；完成引导后再安装本项目组合 hook。
-   智能体不自动提交/发布这个初始公开快照。
+   智能体需先获得初始化和公开发布授权。
 6. 先让 `main` 的 CI 完整运行一次；设置中仅允许 Squash merge，关闭自动合并。
    将另一位真实协作者加入仓库，核实其用户名与写入权限。
 7. 在 **Settings → Rules → Rulesets → New ruleset → Import a ruleset** 分别导入：
@@ -48,17 +48,17 @@
    - `.github/rulesets/protect-main.json`：保护默认分支、main/master/develop/release 系列。
 8. 确认两条规则都为 **Active**，bypass 列表为空；在 GitHub 页面核对以下配置：
    - 禁止删除集成分支；必须通过 PR；仅允许 Squash 合并。
-   - 需要 **1 位其他协作者批准**，新提交撤销旧批准，最近一次推送需另一人批准。
-   - 所有审阅讨论解决；目标分支保持最新；要求 `Repository policy` 与 `Firmware build` 成功。
-   - 两个检查应来自 **GitHub Actions**。JSON 使用 GitHub.com Actions 的 app ID `15368`，导入后核对来源。
+   - 人工 Approval 数量为 **0**，不要求 Code Owner 或最后一次推送的额外批准。
+   - 所有审阅讨论解决；目标分支保持最新；要求 `Agent review record`、`Repository policy` 与 `Firmware build` 成功。
+   - 三个检查应来自 **GitHub Actions**。JSON 使用 GitHub.com Actions 的 app ID `15368`，导入后核对来源。
 9. Rulesets 空 bypass 并不意味着管理员无法编辑规则。管理员凭据留给真人设置环境；
    智能体使用仅针对本仓库的内容/PR 工作权限，不授予 Administration 或规则绕过权限。
-   两人分别用各自账号，不互用登录态；不能让提交者的智能体用审阅人账号代签批准。
-10. 在测试任务分支验证 CI 失败会阻止合并、无人批准不能合并、追加提交后需重新批准；
+   两人分别用各自账号，不互用登录态；智能体如实记录身份，不借用另一人的账号代签。
+   已获用户明确授权的本次规则变更可由执行智能体同步到 GitHub，不能把此次授权泛化成日常改保护权限。
+10. 在测试任务分支验证 CI 失败或缺少审阅记录会阻止合并、head/base 变化后旧记录失效；
     核对集成分支删除和全部分支强推规则确实生效。不要靠破坏主分支做验收。
 
-两个人不需要额外要求“两份批准”。目前未创建 CODEOWNERS，避免把唯一 owner 固定成 `railzfh`
-而导致他自己的 PR 无人能满足 owner 审批。补齐两人用户名后可以按职责设置；当前的一份外部批准仍然必需。
+当前不使用 GitHub Approval 或 CODEOWNERS 作为合并门槛；同一账号创建的 PR 也可在独立智能体审阅和 CI 通过后合并。
 
 ## 3. 每位成员的一次性本地设置
 
@@ -97,11 +97,13 @@ git lfs ls-files
    git push -u origin feat/railzfh/m2006-can
    ```
 
-3. 向 `main` 创建 PR，填写模板，请另一人检查最终 diff、CI 和硬件验证说明。
+3. 向 `main` 创建 PR，高风险改动安排独立智能体（例如子智能体）审阅最终 diff、CI 和硬件验证说明。
    需要合并最新主线时，`git fetch origin` 后 `git merge origin/main`，解决冲突并新增提交；不强推。
-4. 对方真人批准后，由真人点击 Squash merge。追加修改后重新审阅；智能体建议不能替代批准。
-   为避免两人审批互锁，PR 作者负责该分支的全部推送（包括同步主线和按审查意见修改）；
-   审阅人通过评论建议修改，不直接向对方的 PR 分支推提交。
+4. 高风险改动由独立智能体实际完成审阅后，在 PR 正文填写下一节的记录；阻塞问题先修复。
+   普通改动不需要审阅记录，`Agent review record` 检查自动通过，仍需其他 CI 成功。
+   三项必需检查通过、讨论解决且 head/base 未变化时，获授权的智能体可以 Squash merge，
+   使用 `gh pr merge <编号> --squash --match-head-commit <已审阅完整SHA>`，不使用管理员绕过。
+   高风险 PR 合并前还要重新读取目标分支 SHA，确认与审阅记录一致；发生变化就重新审阅。
 5. 合并出错时，在新的任务分支 `git revert <合并提交SHA>`，验证后再走 PR。
    若凭据已经公开，先撤销/轮换凭据，历史清理由仓库负责人单独协调，智能体不自动重写历史。
 6. 已合并任务分支可由真人在 GitHub 清理。本地 hook 默认拦截所有远程删除和标签推送，
@@ -127,6 +129,48 @@ cmake --build build/verify --parallel 2
 CI 使用干净 checkout 的 Debug preset，执行真实配置、编译和链接；不会连接电机或证明硬件安全。
 源码不变的规则/文档修改仍需通过 CI；固件的上板行为按 PR 内容另行验证。
 
+### 智能体审阅记录
+
+自动检查不调用模型。触发规则如下：
+
+| 事件/改动 | 执行动作 |
+| --- | --- |
+| 每次 `git push` | 本地 Git/LFS/仓库策略钩子，不调用智能体 |
+| PR 创建、更新提交、重新打开、编辑正文、转为可审阅 | CI 跑风险分类、策略测试和固件构建 |
+| 推送到 main/master/develop/release 系列 | 策略测试和固件构建，无 PR 审阅记录要求 |
+| 高风险 PR | 必须安排独立智能体审阅并填写有效记录 |
+| 普通 PR | 无需独立智能体和记录，继续要求其他 CI 通过 |
+
+高风险路径由 `scripts/check_agent_review.py` 中的 `HIGH_RISK_FILES` / `HIGH_RISK_PREFIXES` 定义：
+
+- `.ioc`、链接脚本 `.ld`、汇编 `.s`；Core、Drivers、Middlewares、USB_DEVICE、cmake、User_Config 目录及 CMake 工程文件。
+- User_File 中的底层 Driver、System、PID、电机 Motor、BSP/Power、3_Robot 与 4_Task 目录。
+- 智能体规则入口、CONTRIBUTING、`.gitignore`、`.gitattributes`、`.github`、`.githooks`、`.cursor`、scripts 和 tests。
+
+分类使用 PR 相对合并基线的完整 diff；删除和移出高风险目录的重命名也触发。
+例如根 README、docs 文档或 Plotter 模块的普通改动不要求独立审阅；高风险目录内只改注释也触发，
+不做语义猜测。其他路径若实际影响电机、供电或停机等行为，开发智能体仍应主动安排审阅并更新分类规则。
+
+高风险 PR 正文必须包含且仅包含一个 `agent-review` JSON 代码块。模板默认 pending，禁止未经实际审阅就填写 pass：
+
+```agent-review
+{
+  "head_sha": "当前 PR head 的 40 位完整提交 SHA",
+  "base_sha": "当前目标分支的 40 位完整提交 SHA",
+  "reviewer": "独立智能体名称及会话/运行标识",
+  "verdict": "pass",
+  "summary": "具体审阅结论与未验证范围",
+  "checks": ["实际审阅过的行为、回归风险及测试覆盖"],
+  "blocking_findings": []
+}
+```
+
+`Agent review record` 检查验证 SHA、通过结论、非空审阅者/结论/检查范围和空阻塞问题列表。
+编辑 PR 正文会重新触发检查；追加提交或更换基线后，旧记录不能通过。
+检查通过 GitHub API 读取当前 PR 正文和 head/base，不复用事件中的历史正文；重跑旧事件遇到 SHA 变化会失败。
+CI 本身不调用模型，也不能证明审阅者独立性或记录真实性；独立审阅由开发智能体安排和如实记录。
+不能声称已安装自动在线 AI 审查服务，不能把这项记录检查当作真正的代码审阅。
+
 ## 6. 敏感信息与资料包
 
 `.gitignore` 排除环境文件、私钥/证书、本机 IDE 状态及构建产物；`资料.7z` 明确例外，并通过 LFS 上传。
@@ -137,7 +181,7 @@ CI 使用干净 checkout 的 Debug preset，执行真实配置、编译和链接
 防止“先提交凭据，再在最后一个提交删除”漏检。它不是全面密钥扫描器，不展开 LFS/压缩包。
 GitHub 端另启用仓库可用的 Secret scanning / Push protection；不将它当成本地扫描的替代品。
 
-规则/CI 可以被有写入权限的人提出修改，因此审阅人要专门检查 `.github/`、`.githooks/`、`scripts/`、
+规则/CI 可以被有写入权限的人提出修改，因此独立审阅智能体要专门检查 `.github/`、`.githooks/`、`scripts/`、
 各智能体入口、`.gitignore` 与 `.gitattributes` 的变化。任何本地文件都无法约束持有管理凭据且主动关闭规则的人。
 
 ## 官方参考
