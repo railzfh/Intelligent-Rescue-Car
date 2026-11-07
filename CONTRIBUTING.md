@@ -13,7 +13,7 @@
 | GitHub Rulesets | 拦截强推、保护集成分支、要求智能体审阅记录及 CI 通过 | 仓库管理员在服务器启用 |
 
 文件放进仓库不会自动启用 GitHub 规则。本地 hook 可被绕过，不能替代服务器端保护。
-不要求真人审批。独立智能体审阅代码，CI 校验审阅记录并运行自动检查；二者不能互相冒充。
+不要求真人审批。高风险改动由独立智能体审阅代码，普通改动只跑自动检查；CI 校验审阅是否必要及记录是否有效，不代替代码审阅。
 
 ## 2. 首次公开建仓与规则启用
 
@@ -97,12 +97,13 @@ git lfs ls-files
    git push -u origin feat/railzfh/m2006-can
    ```
 
-3. 向 `main` 创建 PR，安排独立智能体（例如子智能体）审阅最终 diff、CI 和硬件验证说明。
+3. 向 `main` 创建 PR，高风险改动安排独立智能体（例如子智能体）审阅最终 diff、CI 和硬件验证说明。
    需要合并最新主线时，`git fetch origin` 后 `git merge origin/main`，解决冲突并新增提交；不强推。
-4. 独立智能体实际完成审阅后，在 PR 正文填写下一节的记录；阻塞问题先修复。
+4. 高风险改动由独立智能体实际完成审阅后，在 PR 正文填写下一节的记录；阻塞问题先修复。
+   普通改动不需要审阅记录，`Agent review record` 检查自动通过，仍需其他 CI 成功。
    三项必需检查通过、讨论解决且 head/base 未变化时，获授权的智能体可以 Squash merge，
    使用 `gh pr merge <编号> --squash --match-head-commit <已审阅完整SHA>`，不使用管理员绕过。
-   合并前还要重新读取目标分支 SHA，确认与审阅记录一致；发生变化就重新审阅。
+   高风险 PR 合并前还要重新读取目标分支 SHA，确认与审阅记录一致；发生变化就重新审阅。
 5. 合并出错时，在新的任务分支 `git revert <合并提交SHA>`，验证后再走 PR。
    若凭据已经公开，先撤销/轮换凭据，历史清理由仓库负责人单独协调，智能体不自动重写历史。
 6. 已合并任务分支可由真人在 GitHub 清理。本地 hook 默认拦截所有远程删除和标签推送，
@@ -130,7 +131,27 @@ CI 使用干净 checkout 的 Debug preset，执行真实配置、编译和链接
 
 ### 智能体审阅记录
 
-PR 正文必须包含且仅包含一个 `agent-review` JSON 代码块。模板默认 pending，禁止未经实际审阅就填写 pass：
+自动检查不调用模型。触发规则如下：
+
+| 事件/改动 | 执行动作 |
+| --- | --- |
+| 每次 `git push` | 本地 Git/LFS/仓库策略钩子，不调用智能体 |
+| PR 创建、更新提交、重新打开、编辑正文、转为可审阅 | CI 跑风险分类、策略测试和固件构建 |
+| 推送到 main/master/develop/release 系列 | 策略测试和固件构建，无 PR 审阅记录要求 |
+| 高风险 PR | 必须安排独立智能体审阅并填写有效记录 |
+| 普通 PR | 无需独立智能体和记录，继续要求其他 CI 通过 |
+
+高风险路径由 `scripts/check_agent_review.py` 中的 `HIGH_RISK_FILES` / `HIGH_RISK_PREFIXES` 定义：
+
+- `.ioc`、链接脚本 `.ld`、汇编 `.s`；Core、Drivers、Middlewares、USB_DEVICE、cmake、User_Config 目录及 CMake 工程文件。
+- User_File 中的底层 Driver、System、PID、电机 Motor、BSP/Power、3_Robot 与 4_Task 目录。
+- 智能体规则入口、CONTRIBUTING、`.gitignore`、`.gitattributes`、`.github`、`.githooks`、`.cursor`、scripts 和 tests。
+
+分类使用 PR 相对合并基线的完整 diff；删除和移出高风险目录的重命名也触发。
+例如根 README、docs 文档或 Plotter 模块的普通改动不要求独立审阅；高风险目录内只改注释也触发，
+不做语义猜测。其他路径若实际影响电机、供电或停机等行为，开发智能体仍应主动安排审阅并更新分类规则。
+
+高风险 PR 正文必须包含且仅包含一个 `agent-review` JSON 代码块。模板默认 pending，禁止未经实际审阅就填写 pass：
 
 ```agent-review
 {
@@ -146,6 +167,7 @@ PR 正文必须包含且仅包含一个 `agent-review` JSON 代码块。模板�
 
 `Agent review record` 检查验证 SHA、通过结论、非空审阅者/结论/检查范围和空阻塞问题列表。
 编辑 PR 正文会重新触发检查；追加提交或更换基线后，旧记录不能通过。
+检查通过 GitHub API 读取当前 PR 正文和 head/base，不复用事件中的历史正文；重跑旧事件遇到 SHA 变化会失败。
 CI 本身不调用模型，也不能证明审阅者独立性或记录真实性；独立审阅由开发智能体安排和如实记录。
 不能声称已安装自动在线 AI 审查服务，不能把这项记录检查当作真正的代码审阅。
 

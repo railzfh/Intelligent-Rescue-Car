@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: checks-${{ github.workflow }}-${{ github.ref }}
@@ -22,14 +23,19 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          fetch-depth: 0
           lfs: false
           persist-credentials: false
+      - name: Read current PR metadata (including reruns)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" > "$RUNNER_TEMP/agent-review-pr.json"
       - name: Validate review against current PR head and base
         env:
-          PR_BODY: ${{ github.event.pull_request.body }}
           REVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REVIEW_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: python3 scripts/check_agent_review.py
+        run: python3 scripts/check_agent_review.py --pr-json "$RUNNER_TEMP/agent-review-pr.json"
 
   policy:
     name: Repository policy
