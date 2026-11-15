@@ -31,6 +31,8 @@ class Class_Power
 public:
     void Init(const bool &__DC24_0_Status = false, const bool &__DC24_1_Status = false, const bool &__DC5_Status = false);
 
+    static inline float Convert_ADC_To_Voltage(float adc_value);
+
     inline float Get_Power_Voltage() const;
 
     inline void Set_DC24_0(const bool &__Status);
@@ -67,6 +69,14 @@ extern Class_Power BSP_Power;
 /* Exported function declarations --------------------------------------------*/
 
 /**
+ * @brief PC4板载分压采样换算：16位ADC、3.3V参考电压、11倍分压比
+ */
+inline float Class_Power::Convert_ADC_To_Voltage(float adc_value)
+{
+    return adc_value / 65535.0f * 3.3f * 11.0f;
+}
+
+/**
  * @brief 获取电源电压
  *
  * @return float 电源电压, 单位V
@@ -74,11 +84,8 @@ extern Class_Power BSP_Power;
 inline float Class_Power::Get_Power_Voltage() const
 {
     // 读取ADC值, 偏移量为0
-    uint32_t adc_value = ADC_Manage_Object->ADC_Data[ADC_Buffer_Offset];
-    // 计算电压, 假设ADC分辨率为16位,
-    float voltage = ((float) (adc_value) / (float) (1 << 16)) * 3.3f * 11.0f;
-    // 返回电压值
-    return (voltage);
+    const volatile uint16_t *adc_data = ADC_Manage_Object->ADC_Data;
+    return Convert_ADC_To_Voltage(adc_data[ADC_Buffer_Offset]);
 }
 
 /**
