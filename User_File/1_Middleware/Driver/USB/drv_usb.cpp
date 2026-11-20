@@ -65,6 +65,14 @@ uint8_t USB_Transmit_Data(uint8_t *Data, uint16_t Length)
  */
 void USB_ReceiveCallback(uint16_t Size)
 {
+    // 仅输出时忽略主机发来的数据，不依赖接收缓冲或时间戳初始化。
+    if (USB0_Manage_Object.Callback_Function == nullptr)
+    {
+        USBD_CDC_SetRxBuffer(&hUsbDeviceHS, UserRxBufferHS);
+        USBD_CDC_ReceivePacket(&hUsbDeviceHS);
+        return;
+    }
+
     if (!init_finished)
     {
         USBD_CDC_SetRxBuffer(&hUsbDeviceHS, USB0_Manage_Object.Rx_Buffer_Active);

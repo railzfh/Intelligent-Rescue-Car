@@ -25,6 +25,15 @@ extern "C" {
 
 /* Exported variables --------------------------------------------------------*/
 
+// 主任务读取值：角度 °，角速度 rad/s；有效性见 BMI088_Device.status.ready。
+extern volatile float yawAngle;
+extern volatile float yawTotalAngle;
+extern volatile float pitchAngle;
+extern volatile float rollAngle;
+extern volatile float yawSpeed;
+extern volatile float pitchSpeed;
+extern volatile float rollSpeed;
+
 /* Exported function declarations --------------------------------------------*/
 
 void Task_Init();

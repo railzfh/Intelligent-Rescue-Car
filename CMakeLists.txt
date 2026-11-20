@@ -53,7 +53,9 @@ include_directories(Core/Inc Drivers/STM32H7xx_HAL_Driver/Inc Drivers/STM32H7xx_
 
 # User include_directories BEGIN
 
-include_directories(User_File)
+include_directories(User_File
+    User_File/2_Device/IMU/BMI088
+)
 
 # User include_directories END
 

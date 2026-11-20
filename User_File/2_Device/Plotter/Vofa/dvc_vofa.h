@@ -102,7 +102,7 @@ public:
 
     inline float Get_Variable_Value() const;
 
-    inline void Set_Data(const int &Number, ...);
+    inline void Set_Data(int Number, ...);
 
     void USB_RxCallback(const uint8_t *Rx_Data, const uint16_t &Length);
 
@@ -221,13 +221,19 @@ inline float Class_Vofa_USB::Get_Variable_Value() const
  * @param Number 添加的数据数量
  * @param ... 每个数据的指针
  */
-inline void Class_Vofa_USB::Set_Data(const int &Number, ...)
+// 可变参数依次传入 float*，保存地址供后续发送。
+inline void Class_Vofa_USB::Set_Data(int Number, ...)
 {
+    if (Number < 0 || Number > 24)
+    {
+        Data_Number = 0;
+        return;
+    }
     va_list data_ptr;
     va_start(data_ptr, Number);
     for (int i = 0; i < Number; i++)
     {
-        Data[i] = (void *) va_arg(data_ptr, int);
+        Data[i] = va_arg(data_ptr, float *);
     }
     va_end(data_ptr);
     Data_Number = Number;

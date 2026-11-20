@@ -282,12 +282,23 @@ uint8_t CDC_Transmit_HS(uint8_t* Buf, uint16_t Len)
 {
   uint8_t result = USBD_OK;
   /* USER CODE BEGIN 12 */
+  const uint32_t primask = __get_PRIMASK();
+  __disable_irq();
   USBD_CDC_HandleTypeDef *hcdc = (USBD_CDC_HandleTypeDef*)hUsbDeviceHS.pClassData;
-  if (hcdc->TxState != 0){
-    return USBD_BUSY;
+  if (hUsbDeviceHS.dev_state != USBD_STATE_CONFIGURED || hcdc == NULL ||
+      Buf == NULL || Len == 0U || Len > APP_TX_DATA_SIZE) {
+    result = USBD_FAIL;
+  } else if (hcdc->TxState != 0U) {
+    result = USBD_BUSY;
+  } else {
+    // USB 异步发送使用独立缓冲，忙时跳过，避免覆盖上一帧或引用前台栈。
+    if (Buf != UserTxBufferHS) {
+      memcpy(UserTxBufferHS, Buf, Len);
+    }
+    USBD_CDC_SetTxBuffer(&hUsbDeviceHS, UserTxBufferHS, Len);
+    result = USBD_CDC_TransmitPacket(&hUsbDeviceHS);
   }
-  USBD_CDC_SetTxBuffer(&hUsbDeviceHS, Buf, Len);
-  result = USBD_CDC_TransmitPacket(&hUsbDeviceHS);
+  __set_PRIMASK(primask);
   /* USER CODE END 12 */
   return result;
 }
